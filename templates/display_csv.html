@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XSS Detection For WordPress</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Custom styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        table th, table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            max-width: 200px; /* Adjust the maximum width as needed */
+            white-space: nowrap; /* Prevent wrapping of content */
+        }
+        .scrollable-cell {
+            max-width: 200px; /* Adjust the width as needed */
+            overflow-x: auto;
+        }
+        thead {
+            background-color: #333;
+            color: #fff;
+        }
+        thead th {
+            text-align: center; /* Center align column names */
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .low-risk {
+            color: blue; /* Change to your desired color for Mid Risk */
+            text-align: center;
+        }
+        .mid-risk {
+            color: yellow; /* Change to your desired color for Mid Risk */
+            text-align: center;
+        }
+        .high-risk {
+            color: orange; /* Change to your desired color for High Risk */
+            text-align: center;
+        }
+        .very-high-risk {
+            color: red; /* Change to your desired color for High Risk */
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>XSS Detection For WordPress</h1>
+        <div class="form-group">
+            <label for="riskSelector">Filter by Risk Category:</label>
+            <select class="form-control" id="riskSelector" onchange="filterTable()">
+                <option value="all">All</option>
+                <option value="Low Risk">Low Risk</option>
+                <option value="Mid Risk">Mid Risk</option>
+                <option value="High Risk">High Risk</option>
+                <option value="Very High Risk">Very High Risk</option>
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table class="table" id="dataTable">
+                <thead>
+                    <tr>
+                        {% for col in columns %}
+                            <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(data[columns[0]]|length) %}
+                        {% set prediction = data['predictions'][i] %}
+                        {% if prediction >= 0.2 %}
+                            <tr>
+                                {% for col in columns %}
+                                    {% if col == 'predictions' %}
+                                        {% if prediction >= 0.8 %}
+                                            <td class="scrollable-cell very-high-risk">Very High Risk</td>
+                                        {% elif prediction >= 0.6 %}
+                                            <td class="scrollable-cell high-risk">High Risk</td>
+                                        {% elif prediction >= 0.4 %}
+                                            <td class="scrollable-cell mid-risk">Mid Risk</td>
+                                        {% elif prediction >= 0.2 %}
+                                            <td class="scrollable-cell low-risk">Low Risk</td>
+                                        {% endif %}
+                                    {% else %}
+                                        <td class="scrollable-cell" title="{{ data[col][i] }}">{{ data[col][i] }}</td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            var selector = document.getElementById("riskSelector");
+            var selectedRisk = selector.value.toLowerCase();
+            var table = document.getElementById("dataTable");
+            var rows = table.getElementsByTagName("tr");
+
+            for (var i = 1; i < rows.length; i++) { 
+                var cells = rows[i].getElementsByTagName("td");
+                var riskCategory = cells[cells.length - 1].textContent.trim().toLowerCase(); 
+
+                if (selectedRisk === "all" || riskCategory === selectedRisk) {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

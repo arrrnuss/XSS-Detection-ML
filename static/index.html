@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XSS Detection For WordPress</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            margin: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        textarea {
+            height: 100px;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 16px;
+            width: calc(100% - 16px);
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            width: 100%;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007bff;
+            color: #fff;
+            font-weight: bold;
+            text-align: left;
+            padding: 12px;
+        }
+
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f5f5f5;
+        }
+
+        @keyframes fadeInRows {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        table tr {
+            animation: fadeInRows 0.4s ease-in-out;
+        }
+
+        #urlForm {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #urls {
+            resize: vertical;
+            width: calc(100% - 18px);
+        }
+
+        #results {
+            margin-top: 30px;
+        }
+
+        .result-table {
+            margin-top: 20px;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 50%; /* Position at 50% from the top */
+            left: 50%; /* Position at 50% from the left */
+            transform: translate(-50%, -50%); /* Centering trick */
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: 9999;
+        }
+
+        .loading p {
+            font-weight: bold;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        /* URL Table */
+        td:nth-child(1) {
+            max-width: 300px;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        
+
+        /* scrollbar */
+        td:nth-child(1)::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        td:nth-child(1)::-webkit-scrollbar-thumb {
+            background-color: #888;
+            border-radius: 4px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4 mb-4">XSS Detection For WordPress</h1>
+        <form id="urlForm">
+            <div class="form-group">
+                <label for="urls">Enter URL :</label>
+                <textarea class="form-control" id="urls" name="urls" rows="3" cols="50"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="processURLs()">Process URL</button>
+        </form>
+
+        <div id="results" class="result-table">
+            <table class="table table-bordered">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>URL</th>
+                        <th>URL Result</th>
+                        <th>Content Result</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+        <p>Loading...</p>
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+
+    <script>
+        function processURLs() {
+            var urlsTextarea = document.getElementById("urls");
+            var urls = urlsTextarea.value.split('\n').filter(url => url.trim() !== '');
+        
+            var requestData = { "urls": urls };
+        
+            // หน้า Loading
+            document.getElementById("loading").style.display = "block";
+        
+            fetch('/process_urls', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayResults(data);
+                // ซ่อน Loading หลังประมวลผลเสร็จ
+                document.getElementById("loading").style.display = "none";
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById("loading").style.display = "none";
+            });
+        }
+
+        function displayResults(data) {
+            var table = document.querySelector("table");
+    
+            while (table.rows.length > 1) {
+                table.deleteRow(1);
+            }
+    
+            data.forEach(result => {
+                var row = table.insertRow();
+                var urlCell = row.insertCell(0);
+                var urlResultCell = row.insertCell(1);
+                var contentResultCell = row.insertCell(2);
+                var linkCell = row.insertCell(3);
+    
+                urlCell.textContent = result.url;
+                urlResultCell.textContent = result.predictions[0] === 0 ? "Low Risk" : "Risk";
+                contentResultCell.textContent = result.content_result;
+    
+                var button = document.createElement("button");
+                button.textContent = "View Details";
+                button.setAttribute("onclick", "viewDetails('" + result.url + "')");
+                linkCell.appendChild(button);
+            });
+        }
+
+        function viewDetails(url) {
+            window.location.href = "/display_csv"; 
+        }
+
+    </script>
+</body>
+</html>
